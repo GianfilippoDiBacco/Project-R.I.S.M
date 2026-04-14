@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project RISM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent-g: #00e5a0;
+      --accent-e: #ff5f6d;
+      --text: #e8e8f0;
+      --muted: #555570;
+      --gold: #f5c542;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 64px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    header .label {
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(56px, 10vw, 100px);
+      letter-spacing: 0.08em;
+      line-height: 1;
+      background: linear-gradient(135deg, #fff 30%, var(--muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header .subtitle {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: var(--border);
+      margin: 0 auto 64px;
+      animation: fadeDown 0.7s 0.1s ease both;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 36px 32px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.7s ease both;
+    }
+
+    .card:nth-child(2) { animation-delay: 0.15s; }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .card.gianfy::before { background: var(--accent-g); }
+    .card.edo::before    { background: var(--accent-e); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+
+    .name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .card.gianfy .name { color: var(--accent-g); }
+    .card.edo    .name { color: var(--accent-e); }
+
+    .amount-display {
+      text-align: right;
+    }
+
+    .amount-value {
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .card.gianfy .amount-value { color: var(--accent-g); }
+    .card.edo    .amount-value { color: var(--accent-e); }
+
+    .amount-max {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      margin-top: 4px;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      background: var(--border);
+      height: 8px;
+      border-radius: 0;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+      border-radius: 0;
+      position: relative;
+    }
+    .card.gianfy .progress-fill { background: var(--accent-g); box-shadow: 0 0 12px var(--accent-g); }
+    .card.edo    .progress-fill { background: var(--accent-e); box-shadow: 0 0 12px var(--accent-e); }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 24px;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.3));
+    }
+
+    .percentage {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      margin-bottom: 28px;
+      text-align: right;
+    }
+
+    /* Input row */
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .money-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .card.gianfy .money-input:focus { border-color: var(--accent-g); }
+    .card.edo    .money-input:focus { border-color: var(--accent-e); }
+    .money-input::placeholder { color: var(--muted); }
+
+    .add-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .card.gianfy .add-btn:hover { background: var(--accent-g); border-color: var(--accent-g); color: #000; }
+    .card.edo    .add-btn:hover { background: var(--accent-e); border-color: var(--accent-e); color: #000; }
+
+    .quick-btns {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .quick-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .card.gianfy .quick-btn:hover { border-color: var(--accent-g); color: var(--accent-g); }
+    .card.edo    .quick-btn:hover { border-color: var(--accent-e); color: var(--accent-e); }
+
+    /* Log */
+    .log-label {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+
+    .log {
+      max-height: 80px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .log-entry {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 2px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .log-entry span {
+      color: var(--text);
+    }
+
+    /* Celebration overlay */
+    .celebration {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 32px;
+    }
+
+    .celebration.active {
+      display: flex;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .cel-label {
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      color: var(--gold);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .cel-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(72px, 15vw, 140px);
+      letter-spacing: 0.06em;
+      line-height: 1;
+      animation: pulse 1.2s ease infinite alternate;
+    }
+
+    .cel-msg {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 320px;
+      margin: 24px auto 0;
+      line-height: 1.8;
+      letter-spacing: 0.05em;
+    }
+
+    .close-cel {
+      margin-top: 40px;
+      background: transparent;
+      border: 1px solid var(--gold);
+      border-radius: 2px;
+      color: var(--gold);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      padding: 12px 28px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .close-cel:hover { background: var(--gold); color: #000; }
+
+    .confetti-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      top: -10px;
+      animation: confettiFall linear forwards;
+    }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes pulse {
+      from { text-shadow: 0 0 20px currentColor; }
+      to   { text-shadow: 0 0 60px currentColor, 0 0 100px currentColor; }
+    }
+    @keyframes confettiFall {
+      to { top: 110vh; transform: rotate(720deg) translateX(var(--drift)); opacity: 0; }
+    }
+
+    footer {
+      margin-top: 80px;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      text-align: center;
+      animation: fadeUp 1s 0.4s ease both;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="label">Progress Tracker</div>
+  <h1>PROJECT RISM</h1>
+  <div class="subtitle">WHO REACHES 10.000 FIRST?</div>
+</header>
+<div class="divider"></div>
+
+<div class="cards">
+
+  <!-- GIANFY -->
+  <div class="card gianfy">
+    <div class="card-header">
+      <div class="name">GIANFY</div>
+      <div class="amount-display">
+        <div class="amount-value" id="gianfy-val">€0</div>
+        <div class="amount-max">/ €10.000</div>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-fill" id="gianfy-fill"></div>
+    </div>
+    <div class="percentage" id="gianfy-pct">0.0%</div>
+    <div class="input-row">
+      <input class="money-input" id="gianfy-input" type="number" min="1" max="10000" placeholder="€ amount..." />
+      <button class="add-btn" onclick="addMoney('gianfy')">+ ADD</button>
+    </div>
+    <div class="quick-btns">
+      <button class="quick-btn" onclick="quickAdd('gianfy', 50)">+50</button>
+      <button class="quick-btn" onclick="quickAdd('gianfy', 100)">+100</button>
+      <button class="quick-btn" onclick="quickAdd('gianfy', 500)">+500</button>
+      <button class="quick-btn" onclick="quickAdd('gianfy', 1000)">+1K</button>
+    </div>
+    <div class="log-label">LOG</div>
+    <div class="log" id="gianfy-log"></div>
+  </div>
+
+  <!-- EDO -->
+  <div class="card edo">
+    <div class="card-header">
+      <div class="name">EDO</div>
+      <div class="amount-display">
+        <div class="amount-value" id="edo-val">€0</div>
+        <div class="amount-max">/ €10.000</div>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-fill" id="edo-fill"></div>
+    </div>
+    <div class="percentage" id="edo-pct">0.0%</div>
+    <div class="input-row">
+      <input class="money-input" id="edo-input" type="number" min="1" max="10000" placeholder="€ amount..." />
+      <button class="add-btn" onclick="addMoney('edo')">+ ADD</button>
+    </div>
+    <div class="quick-btns">
+      <button class="quick-btn" onclick="quickAdd('edo', 50)">+50</button>
+      <button class="quick-btn" onclick="quickAdd('edo', 100)">+100</button>
+      <button class="quick-btn" onclick="quickAdd('edo', 500)">+500</button>
+      <button class="quick-btn" onclick="quickAdd('edo', 1000)">+1K</button>
+    </div>
+    <div class="log-label">LOG</div>
+    <div class="log" id="edo-log"></div>
+  </div>
+
+</div>
+
+<!-- Celebration -->
+<div class="celebration" id="celebration">
+  <div class="confetti-container" id="confetti-container"></div>
+  <div class="cel-label">🏆 GOAL REACHED</div>
+  <div class="cel-name" id="cel-name">GIANFY</div>
+  <div class="cel-msg">Congratulations! €10.000 reached.<br>The mission is complete.</div>
+  <button class="close-cel" onclick="closeCelebration()">CLOSE</button>
+</div>
+
+<footer>PROJECT RISM &nbsp;·&nbsp; TRACK YOUR PROGRESS</footer>
+
+<script>
+  const MAX = 10000;
+  const state = {
+    gianfy: parseInt(localStorage.getItem('rism_gianfy') || '0'),
+    edo:    parseInt(localStorage.getItem('rism_edo')    || '0'),
+  };
+
+  function save() {
+    localStorage.setItem('rism_gianfy', state.gianfy);
+    localStorage.setItem('rism_edo',    state.edo);
+  }
+
+  function updateUI(person) {
+    const val = Math.min(state[person], MAX);
+    const pct = (val / MAX) * 100;
+    document.getElementById(`${person}-val`).textContent  = '€' + val.toLocaleString('it-IT');
+    document.getElementById(`${person}-fill`).style.width = pct + '%';
+    document.getElementById(`${person}-pct`).textContent  = pct.toFixed(1) + '%';
+  }
+
+  function addLog(person, amount) {
+    const log = document.getElementById(`${person}-log`);
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const time = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+    entry.innerHTML = `[${time}] <span>+€${amount.toLocaleString('it-IT')}</span> added → €${state[person].toLocaleString('it-IT')}`;
+    log.prepend(entry);
+  }
+
+  function addMoney(person) {
+    const input = document.getElementById(`${person}-input`);
+    const amount = parseInt(input.value);
+    if (!amount || amount <= 0) return;
+    apply(person, amount);
+    input.value = '';
+  }
+
+  function quickAdd(person, amount) {
+    apply(person, amount);
+  }
+
+  function apply(person, amount) {
+    if (state[person] >= MAX) return;
+    state[person] = Math.min(state[person] + amount, MAX);
+    save();
+    updateUI(person);
+    addLog(person, amount);
+    if (state[person] >= MAX) celebrate(person);
+  }
+
+  function celebrate(person) {
+    document.getElementById('cel-name').textContent = person.toUpperCase();
+    document.getElementById('cel-name').style.color =
+      person === 'gianfy' ? 'var(--accent-g)' : 'var(--accent-e)';
+    document.getElementById('celebration').classList.add('active');
+    launchConfetti();
+  }
+
+  function closeCelebration() {
+    document.getElementById('celebration').classList.remove('active');
+    document.getElementById('confetti-container').innerHTML = '';
+  }
+
+  function launchConfetti() {
+    const container = document.getElementById('confetti-container');
+    container.innerHTML = '';
+    const colors = ['#00e5a0','#ff5f6d','#f5c542','#ffffff','#8b5cf6','#3b82f6'];
+    for (let i = 0; i < 120; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const left  = Math.random() * 100;
+      const delay = Math.random() * 1.5;
+      const dur   = 2.5 + Math.random() * 2;
+      const drift = (Math.random() - 0.5) * 200 + 'px';
+      const size  = 6 + Math.random() * 8;
+      el.style.cssText = `
+        left:${left}vw; background:${color}; width:${size}px; height:${size}px;
+        --drift:${drift};
+        animation-duration:${dur}s; animation-delay:${delay}s;
+        border-radius:${Math.random() > 0.5 ? '50%' : '0'};
+        opacity:${0.7 + Math.random() * 0.3};
+      `;
+      container.appendChild(el);
+    }
+  }
+
+  // Allow Enter key
+  ['gianfy','edo'].forEach(p => {
+    document.getElementById(`${p}-input`).addEventListener('keydown', e => {
+      if (e.key === 'Enter') addMoney(p);
+    });
+  });
+
+  // Init
+  updateUI('gianfy');
+  updateUI('edo');
+</script>
+</body>
+</html>

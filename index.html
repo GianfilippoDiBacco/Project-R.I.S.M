@@ -1,149 +1,145 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project RISM - Cloud Edition</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f; --surface: #111118; --border: #1e1e2e;
+      --accent-g: #00e5a0; --accent-e: #ff5f6d;
+      --text: #e8e8f0; --muted: #555570; --gold: #f5c542;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Mono', monospace; padding: 40px 20px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    header { text-align: center; margin-bottom: 40px; }
+    h1 { font-family: 'Bebas Neue', sans-serif; font-size: 4rem; letter-spacing: 4px; margin: 0; }
+    #global-timer { color: var(--gold); font-size: 1.2rem; margin-top: 10px; font-weight: 500; }
+    
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; width: 100%; max-width: 900px; }
+    .card { background: var(--surface); border: 1px solid var(--border); padding: 25px; border-radius: 4px; }
+    
+    .progress-container { background: #000; height: 12px; border-radius: 6px; margin: 20px 0; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; transition: width 1s cubic-bezier(0.1, 0, 0, 1); }
+    .g-fill { background: var(--accent-g); box-shadow: 0 0 15px var(--accent-g); }
+    .e-fill { background: var(--accent-e); box-shadow: 0 0 15px var(--accent-e); }
 
-<script>
-  // Cloud Configuration
-  const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
-  
-  const MAX = 10000;
-  let sb;
-  let state = {
-    gianfy: 0,
-    edo: 0,
-    logs: [] // We'll share the log globally too
-  };
+    input { background: #000; border: 1px solid var(--border); color: #fff; padding: 10px; width: 100%; margin-bottom: 10px; font-family: inherit; }
+    .btn { cursor: pointer; border: 1px solid var(--border); padding: 10px; background: transparent; color: var(--text); font-family: inherit; transition: 0.2s; }
+    .btn:hover { background: #fff; color: #000; }
+    
+    .log { margin-top: 20px; font-size: 0.8rem; color: var(--muted); height: 100px; overflow-y: auto; }
+    .log-entry span { color: #fff; font-weight: bold; }
+    
+    #reset-btn { margin-top: 100px; color: var(--muted); font-size: 10px; border: 1px solid var(--muted); padding: 5px 10px; cursor: pointer; background: transparent; }
+  </style>
+</head>
+<body>
 
-  // 2. Initialize and Sync
-  async function init() {
-    try {
+  <header>
+    <p style="color:var(--muted); letter-spacing: 5px;">PROJECT</p>
+    <h1>RISM</h1>
+    <div id="global-timer">CONNECTING TO CLOUD...</div>
+  </header>
+
+  <div class="cards">
+    <div class="card">
+      <h2 style="color:var(--accent-g)">GIANFY</h2>
+      <div id="gianfy-val" style="font-size: 2rem;">€0</div>
+      <div class="progress-container"><div id="gianfy-fill" class="progress-fill g-fill"></div></div>
+      <p id="gianfy-pct" style="color:var(--muted)">0%</p>
+      <input type="number" id="gianfy-input" placeholder="Amount...">
+      <button class="btn" onclick="addMoney('gianfy')">ADD FUNDS</button>
+      <div id="gianfy-log" class="log"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="color:var(--accent-e)">EDO</h2>
+      <div id="edo-val" style="font-size: 2rem;">€0</div>
+      <div class="progress-container"><div id="edo-fill" class="progress-fill e-fill"></div></div>
+      <p id="edo-pct" style="color:var(--muted)">0%</p>
+      <input type="number" id="edo-input" placeholder="Amount...">
+      <button class="btn" onclick="addMoney('edo')">ADD FUNDS</button>
+      <div id="edo-log" class="log"></div>
+    </div>
+  </div>
+
+  <button id="reset-btn" onclick="fullReset()">SYSTEM RESET</button>
+
+  <script>
+    const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
+    
+    const MAX = 10000;
+    let sb, state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+
+    async function init() {
       sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-      // Load initial data from "rism_state" row
-      const { data, error } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+      const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+      if (data) state = data.data;
       
-      if (data) {
-        state = data.data;
-      } else {
-        // Create the row if it doesn't exist yet
-        await sb.from('rng_state').insert([{ id: 'rism_global', data: state }]);
-      }
-
       refreshUI();
+      setInterval(updateTimer, 1000);
 
-      // 3. Listen for Real-time updates from other devices
-      sb.channel('rism-changes')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
-          state = payload.new.data;
-          refreshUI();
-        })
-        .subscribe();
-
-    } catch (err) {
-      console.error("Connection failed:", err);
+      sb.channel('rism').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
+        state = payload.new.data;
+        refreshUI();
+      }).subscribe();
     }
-  }
 
-  function refreshUI() {
-    updateUI('gianfy');
-    updateUI('edo');
-    renderLogs();
-  }
-
-  function updateUI(person) {
-    const val = Math.min(state[person], MAX);
-    const pct = (val / MAX) * 100;
-    document.getElementById(`${person}-val`).textContent  = '€' + val.toLocaleString('it-IT');
-    document.getElementById(`${person}-fill`).style.width = pct + '%';
-    document.getElementById(`${person}-pct`).textContent  = pct.toFixed(1) + '%';
-  }
-
-  function renderLogs() {
-    ['gianfy', 'edo'].forEach(person => {
-      const logContainer = document.getElementById(`${person}-log`);
-      logContainer.innerHTML = ''; // Clear current
+    function updateTimer() {
+      const el = document.getElementById('global-timer');
+      if (!state.deadline) { el.innerHTML = "WAITING FOR FIRST DEPOSIT"; return; }
       
-      // Filter logs for this specific person
-      const personLogs = state.logs.filter(l => l.user === person).slice(0, 10);
+      const diff = state.deadline - Date.now();
+      if (diff < 0) {
+        const win = state.gianfy > state.edo ? "GIANFY" : "EDO";
+        el.innerHTML = `CHALLENGE OVER: ${win} WINS`;
+        return;
+      }
       
-      personLogs.forEach(l => {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = `[${l.time}] <span>+€${l.amount.toLocaleString('it-IT')}</span> added`;
-        logContainer.appendChild(entry);
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hrs = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const mins = Math.floor((diff / 1000 / 60) % 60);
+      el.innerHTML = `${days}d ${hrs}h ${mins}m REMAINING`;
+    }
+
+    async function addMoney(p) {
+      const val = parseInt(document.getElementById(`${p}-input`).value);
+      if (!val || val <= 0) return;
+
+      if (!state.deadline) state.deadline = Date.now() + (6 * 30 * 24 * 60 * 60 * 1000);
+      
+      state[p] += val;
+      state.logs.unshift({ user: p, amount: val, time: new Date().toLocaleTimeString() });
+      await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
+      document.getElementById(`${p}-input`).value = '';
+    }
+
+    async function fullReset() {
+      if (prompt('Type: I want to reset') === "I want to reset") {
+        state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+        await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
+      }
+    }
+
+    function refreshUI() {
+      ['gianfy', 'edo'].forEach(p => {
+        const pct = Math.min((state[p] / MAX) * 100, 100);
+        document.getElementById(`${p}-val`).innerText = `€${state[p].toLocaleString()}`;
+        document.getElementById(`${p}-fill`).style.width = pct + '%';
+        document.getElementById(`${p}-pct`).innerText = pct.toFixed(1) + '%';
+        document.getElementById(`${p}-log`).innerHTML = state.logs.filter(l => l.user === p).slice(0, 5)
+          .map(l => `<div class="log-entry">${l.time} <span>+€${l.amount}</span></div>`).join('');
       });
-    });
-  }
-
-  async function apply(person, amount) {
-    if (state[person] >= MAX) return;
-
-    // Update local state
-    state[person] = Math.min(state[person] + amount, MAX);
-    
-    // Add to shared log
-    const time = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-    state.logs.unshift({ user: person, amount: amount, time: time });
-    if (state.logs.length > 50) state.logs.pop(); // Keep log slim
-
-    // Push to Cloud
-    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-    
-    refreshUI();
-    if (state[person] >= MAX) celebrate(person);
-  }
-
-  // UI Helper Functions
-  function addMoney(person) {
-    const input = document.getElementById(`${person}-input`);
-    const amount = parseInt(input.value);
-    if (!amount || amount <= 0) return;
-    apply(person, amount);
-    input.value = '';
-  }
-
-  function quickAdd(person, amount) {
-    apply(person, amount);
-  }
-
-  function celebrate(person) {
-    document.getElementById('cel-name').textContent = person.toUpperCase();
-    document.getElementById('cel-name').style.color =
-      person === 'gianfy' ? 'var(--accent-g)' : 'var(--accent-e)';
-    document.getElementById('celebration').classList.add('active');
-    launchConfetti();
-  }
-
-  function closeCelebration() {
-    document.getElementById('celebration').classList.remove('active');
-    document.getElementById('confetti-container').innerHTML = '';
-  }
-
-  function launchConfetti() {
-    const container = document.getElementById('confetti-container');
-    container.innerHTML = '';
-    const colors = ['#00e5a0','#ff5f6d','#f5c542','#ffffff'];
-    for (let i = 0; i < 120; i++) {
-      const el = document.createElement('div');
-      el.className = 'confetti-piece';
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      el.style.cssText = `
-        left:${Math.random() * 100}vw; background:${color}; 
-        width:${6+Math.random()*8}px; height:${6+Math.random()*8}px;
-        --drift:${(Math.random() - 0.5) * 200}px;
-        animation-duration:${2.5+Math.random()*2}s; 
-        animation-delay:${Math.random()*1.5}s;
-      `;
-      container.appendChild(el);
     }
-  }
 
-  // Handle Enter Key
-  ['gianfy','edo'].forEach(p => {
-    document.getElementById(`${p}-input`).addEventListener('keydown', e => {
-      if (e.key === 'Enter') addMoney(p);
-    });
-  });
-
-  // Start the App
-  window.onload = init;
-</script>
+    window.onload = init;
+  </script>
+</body>
+</html>

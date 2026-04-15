@@ -52,8 +52,15 @@
     .log { max-height: 80px; overflow-y: auto; margin-top: 24px; border-top: 1px solid var(--border); padding-top: 8px; }
     .log-entry { font-size: 10px; color: var(--muted); display: flex; justify-content: space-between; padding: 2px 0; }
     #reset-btn { margin-top: 80px; background: transparent; border: 1px solid #1a1a25; color: #333; padding: 8px 16px; cursor: pointer; font-size: 10px; }
+    
+    /* Celebration Overlay */
+    .celebration { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
+    .celebration.active { display: flex; animation: fadeIn 0.4s ease; }
+    .cel-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(80px, 15vw, 150px); line-height: 1; margin: 20px 0; }
+    
     @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
@@ -87,25 +94,30 @@
   </div>
 </div>
 
+<div class="celebration" id="celebration">
+    <div style="color:var(--gold); letter-spacing:8px; font-size:14px;">ULTIMATE VICTORY</div>
+    <div class="cel-name" id="cel-name">WINNER</div>
+    <div style="color:var(--muted); letter-spacing:2px;">TARGET REACHED BEFORE DEADLINE</div>
+    <button id="reset-btn" style="margin-top:40px; border-color:var(--gold); color:var(--gold);" onclick="closeCelebration()">BACK TO DASHBOARD</button>
+</div>
+
 <button id="reset-btn" onclick="fullReset()">RESET SYSTEM ARCHIVE</button>
 
 <script>
-  // INSERT YOUR SUPABASE CREDENTIALS HERE
-  const SUPABASE_URL = 'https://fiqihkihgsddxyxjbvrl.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcWloa2loZ3NkZHh5eGpidnJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNjUyODYsImV4cCI6MjA5MTg0MTI4Nn0.MiitwN-yttsZX3d2IvvCzF2STM6ylZ3l7m5OvD9vJSU';
+  // UPDATE THESE WITH YOUR CREDENTIALS
+  const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
   
   const MAX = 10000;
-  let sb, state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+  let sb, state = { gianfy: 0, edo: 0, logs: [], deadline: null, winner: null };
 
   async function init() {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    // Load initial data from cloud
     const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
-    if (data) { state = data.data; refreshUI(); }
+    if (data) { state = data.data; refreshUI(); checkWinner(); }
     
-    // Listen for live updates from other devices
     sb.channel('rism').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
-      state = payload.new.data; refreshUI();
+      state = payload.new.data; refreshUI(); checkWinner();
     }).subscribe();
   }
 
@@ -121,31 +133,61 @@
     });
   }
 
+  function checkWinner() {
+    if (state.winner) { triggerWinUI(state.winner); return; }
+    if (state.gianfy >= MAX) finalizeWin('gianfy');
+    else if (state.edo >= MAX) finalizeWin('edo');
+  }
+
+  async function finalizeWin(user) {
+    state.winner = user;
+    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
+    triggerWinUI(user);
+  }
+
+  function triggerWinUI(user) {
+    const el = document.getElementById('cel-name');
+    el.innerText = user.toUpperCase();
+    el.style.color = user === 'gianfy' ? 'var(--accent-g)' : 'var(--accent-e)';
+    document.getElementById('celebration').classList.add('active');
+  }
+
+  function closeCelebration() { document.getElementById('celebration').classList.remove('active'); }
+
   async function addMoney(p) {
+    if (state.winner) return; // Block deposits if someone already won
     const input = document.getElementById(`${p}-input`);
     const val = parseInt(input.value);
     if (!val || val <= 0) return;
     if (!state.deadline) state.deadline = Date.now() + (6 * 30 * 24 * 60 * 60 * 1000);
+    
     state[p] += val;
     state.logs.unshift({ user: p, amount: val, time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) });
+    
     refreshUI();
     input.value = '';
-    // Save to cloud
     await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
   }
 
   async function fullReset() {
     if (prompt('Type "I want to reset" to confirm:') === "I want to reset") {
-      state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+      state = { gianfy: 0, edo: 0, logs: [], deadline: null, winner: null };
       refreshUI();
+      document.getElementById('celebration').classList.remove('active');
       await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
     }
   }
 
   function updateTimer() {
     const el = document.getElementById('global-timer');
+    if (state.winner) { el.innerHTML = `${state.winner.toUpperCase()} SECURED THE WIN`; return; }
     if (!state.deadline) { el.innerHTML = "AWAITING DEPOSIT"; return; }
     const diff = state.deadline - Date.now();
+    if (diff <= 0) {
+        const leader = state.gianfy > state.edo ? "GIANFY" : "EDO";
+        el.innerHTML = `TIME UP: ${leader} WINS`;
+        return;
+    }
     const d = Math.floor(diff / (1000 * 60 * 60 * 24));
     const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
     el.innerHTML = `T-MINUS: ${d}D ${h}H`;

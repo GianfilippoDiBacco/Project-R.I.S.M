@@ -8,163 +8,358 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --bg: #0a0a0f; --surface: #111118; --border: #1e1e2e;
-      --accent-g: #00e5a0; --accent-e: #ff5f6d;
-      --text: #e8e8f0; --muted: #555570; --gold: #f5c542;
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent-g: #00e5a0;
+      --accent-e: #ff5f6d;
+      --text: #e8e8f0;
+      --muted: #555570;
+      --gold: #f5c542;
     }
+
     body {
-      background: var(--bg); color: var(--text);
-      font-family: 'DM Mono', monospace; min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 48px 24px 80px; overflow-x: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+      overflow-x: hidden;
     }
+
+    /* Grain overlay */
     body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-      opacity: 0.03; pointer-events: none; z-index: 10;
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
     }
-    header { text-align: center; margin-bottom: 64px; position: relative; }
-    .pre-title { font-size: 10px; letter-spacing: 0.8em; color: var(--muted); margin-bottom: 8px; text-indent: 0.8em; }
-    h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(80px, 15vw, 120px); line-height: 0.9; letter-spacing: 4px; margin: 0; background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.1) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    #global-timer { font-size: 14px; color: var(--gold); margin-top: 16px; letter-spacing: 2px; text-transform: uppercase; }
 
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 32px; width: 100%; max-width: 1000px; position: relative; }
-    .card { background: var(--surface); border: 1px solid var(--border); padding: 40px; border-radius: 4px; position: relative; overflow: hidden; }
-    .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--border); }
-    .card.g-card::before { background: var(--accent-g); }
-    .card.e-card::before { background: var(--accent-e); }
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      animation: fadeDown 0.7s ease both;
+    }
 
-    h2 { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 2px; margin-bottom: 32px; }
-    .val-display { font-size: 48px; font-weight: 500; margin-bottom: 8px; letter-spacing: -1px; }
-    
-    .prog-track { background: #000; height: 8px; border-radius: 4px; margin: 24px 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.03); }
-    .prog-fill { height: 100%; width: 0%; transition: width 1.5s cubic-bezier(0.19, 1, 0.22, 1); }
-    .g-fill { background: var(--accent-g); box-shadow: 0 0 20px rgba(0,229,160,0.3); }
-    .e-fill { background: var(--accent-e); box-shadow: 0 0 20px rgba(255,95,109,0.3); }
+    header .label {
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
 
-    .input-group { display: flex; gap: 8px; margin-top: 32px; }
-    input { background: #000; border: 1px solid var(--border); color: #fff; padding: 12px 16px; font-family: inherit; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; }
-    input:focus { border-color: var(--muted); }
-    .btn { background: var(--text); color: #000; border: none; padding: 0 24px; font-family: inherit; font-weight: 600; font-size: 12px; cursor: pointer; text-transform: uppercase; transition: transform 0.1s, opacity 0.2s; }
-    .btn:active { transform: scale(0.96); }
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(56px, 10vw, 100px);
+      letter-spacing: 0.08em;
+      line-height: 1;
+      background: linear-gradient(135deg, #fff 30%, var(--muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-    .log { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px; height: 120px; overflow-y: auto; }
-    .log-entry { font-size: 11px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
-    .log-entry span { color: var(--text); }
+    #global-timer {
+      font-size: 14px;
+      color: var(--gold);
+      margin-top: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: fadeIn 1s 0.5s ease both;
+    }
 
-    #reset-btn { margin-top: 80px; background: transparent; border: 1px solid #1a1a25; color: #333; padding: 8px 16px; font-family: inherit; font-size: 10px; cursor: pointer; letter-spacing: 2px; }
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: var(--border);
+      margin: 32px auto 64px;
+      animation: fadeDown 0.7s 0.1s ease both;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 36px 32px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.7s ease both;
+    }
+
+    .card:nth-child(2) { animation-delay: 0.15s; }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .card.gianfy::before { background: var(--accent-g); }
+    .card.edo::before    { background: var(--accent-e); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+
+    .name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 0.06em;
+      line-height: 1;
+    }
+    .card.gianfy .name { color: var(--accent-g); }
+    .card.edo    .name { color: var(--accent-e); }
+
+    .amount-display {
+      text-align: right;
+    }
+
+    .amount-value {
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .card.gianfy .amount-value { color: var(--accent-g); }
+    .card.edo    .amount-value { color: var(--accent-e); }
+
+    .amount-max {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      margin-top: 4px;
+    }
+
+    .progress-wrap {
+      background: var(--border);
+      height: 8px;
+      border-radius: 0;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+      border-radius: 0;
+      position: relative;
+    }
+    .card.gianfy .progress-fill { background: var(--accent-g); box-shadow: 0 0 12px var(--accent-g); }
+    .card.edo    .progress-fill { background: var(--accent-e); box-shadow: 0 0 12px var(--accent-e); }
+
+    .percentage {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.2em;
+      margin-bottom: 28px;
+      text-align: right;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .money-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .card.gianfy .money-input:focus { border-color: var(--accent-g); }
+    .card.edo    .money-input:focus { border-color: var(--accent-e); }
+
+    .add-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .card.gianfy .add-btn:hover { background: var(--accent-g); border-color: var(--accent-g); color: #000; }
+    .card.edo    .add-btn:hover { background: var(--accent-e); border-color: var(--accent-e); color: #000; }
+
+    .log {
+      max-height: 100px;
+      overflow-y: auto;
+      margin-top: 24px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .log-entry {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 4px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .log-entry span { color: var(--text); font-weight: 500; }
+
+    #reset-btn {
+      margin-top: 80px;
+      background: transparent;
+      border: 1px solid #1a1a25;
+      color: #333;
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
     #reset-btn:hover { color: var(--accent-e); border-color: var(--accent-e); }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
 
-  <header>
-    <div class="pre-title">COLLECTIVE CONTRIBUTION</div>
-    <h1>RISM</h1>
-    <div id="global-timer">OFFLINE MODE</div>
-  </header>
+<header>
+  <div class="label">Collective Progress Tracker</div>
+  <h1>PROJECT RISM</h1>
+  <div id="global-timer">SYNCHRONIZING...</div>
+</header>
+<div class="divider"></div>
 
-  <div class="cards">
-    <div class="card g-card">
-      <h2 style="color:var(--accent-g)">CONTRIBUTOR: GIANFY</h2>
-      <div id="gianfy-val" class="val-display">€0</div>
-      <div class="prog-track"><div id="gianfy-fill" class="prog-fill g-fill"></div></div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted)">
-        <span>PROGRESS</span><span id="gianfy-pct">0%</span>
+<div class="cards">
+  <div class="card gianfy">
+    <div class="card-header">
+      <div class="name">GIANFY</div>
+      <div class="amount-display">
+        <div class="amount-value" id="gianfy-val">€0</div>
+        <div class="amount-max">/ €10.000</div>
       </div>
-      <div class="input-group">
-        <input type="number" id="gianfy-input" placeholder="0.00">
-        <button class="btn" onclick="addMoney('gianfy')">DEPOSIT</button>
-      </div>
-      <div id="gianfy-log" class="log"></div>
     </div>
-
-    <div class="card e-card">
-      <h2 style="color:var(--accent-e)">CONTRIBUTOR: EDO</h2>
-      <div id="edo-val" class="val-display">€0</div>
-      <div class="prog-track"><div id="edo-fill" class="prog-fill e-fill"></div></div>
-      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted)">
-        <span>PROGRESS</span><span id="edo-pct">0%</span>
-      </div>
-      <div class="input-group">
-        <input type="number" id="edo-input" placeholder="0.00">
-        <button class="btn" onclick="addMoney('edo')">DEPOSIT</button>
-      </div>
-      <div id="edo-log" class="log"></div>
+    <div class="progress-wrap"><div class="progress-fill" id="gianfy-fill"></div></div>
+    <div class="percentage" id="gianfy-pct">0.0%</div>
+    <div class="input-row">
+      <input class="money-input" id="gianfy-input" type="number" placeholder="€ amount..." />
+      <button class="add-btn" onclick="addMoney('gianfy')">DEPOSIT</button>
     </div>
+    <div class="log" id="gianfy-log"></div>
   </div>
 
-  <button id="reset-btn" onclick="fullReset()">RESET SYSTEM ARCHIVE</button>
+  <div class="card edo">
+    <div class="card-header">
+      <div class="name">EDO</div>
+      <div class="amount-display">
+        <div class="amount-value" id="edo-val">€0</div>
+        <div class="amount-max">/ €10.000</div>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" id="edo-fill"></div></div>
+    <div class="percentage" id="edo-pct">0.0%</div>
+    <div class="input-row">
+      <input class="money-input" id="edo-input" type="number" placeholder="€ amount..." />
+      <button class="add-btn" onclick="addMoney('edo')">DEPOSIT</button>
+    </div>
+    <div class="log" id="edo-log"></div>
+  </div>
+</div>
 
-  <script>
-    const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
-    
-    const MAX = 10000;
-    let sb, state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+<button id="reset-btn" onclick="fullReset()">RESET SYSTEM ARCHIVE</button>
 
-    function refreshUI() {
-      ['gianfy', 'edo'].forEach(p => {
-        const val = state[p] || 0;
-        const pct = Math.min((val / MAX) * 100, 100);
-        document.getElementById(`${p}-val`).innerText = `€${val.toLocaleString('it-IT')}`;
-        document.getElementById(`${p}-fill`).style.width = pct + '%';
-        document.getElementById(`${p}-pct`).innerText = pct.toFixed(1) + '%';
-        document.getElementById(`${p}-log`).innerHTML = state.logs.filter(l => l.user === p).slice(0, 8)
-          .map(l => `<div class="log-entry"><span>+€${l.amount.toLocaleString('it-IT')}</span> ${l.time}</div>`).join('');
-      });
+<script>
+  const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
+  
+  const MAX = 10000;
+  let sb, state = { gianfy: 0, edo: 0, logs: [], deadline: null };
+
+  function refreshUI() {
+    ['gianfy', 'edo'].forEach(p => {
+      const val = state[p] || 0;
+      const pct = Math.min((val / MAX) * 100, 100);
+      document.getElementById(`${p}-val`).innerText = `€${val.toLocaleString('it-IT')}`;
+      document.getElementById(`${p}-fill`).style.width = pct + '%';
+      document.getElementById(`${p}-pct`).innerText = pct.toFixed(1) + '%';
+      document.getElementById(`${p}-log`).innerHTML = state.logs.filter(l => l.user === p).slice(0, 8)
+        .map(l => `<div class="log-entry"><span>+€${l.amount.toLocaleString('it-IT')}</span> ${l.time}</div>`).join('');
+    });
+  }
+
+  function updateTimer() {
+    const el = document.getElementById('global-timer');
+    if (!state.deadline) { el.innerHTML = "SYSTEM READY / AWAITING DEPOSIT"; return; }
+    const diff = state.deadline - Date.now();
+    if (diff < 0) {
+      const win = state.gianfy > state.edo ? "GIANFY" : "EDO";
+      el.innerHTML = `CHALLENGE OVER: ${win} WINS`;
+      return;
     }
+    const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const m = Math.floor((diff / 1000 / 60) % 60);
+    el.innerHTML = `T-MINUS: ${d}D ${h}H ${m}M`;
+  }
 
-    function updateTimer() {
-      const el = document.getElementById('global-timer');
-      if (!state.deadline) { el.innerHTML = "SYSTEM READY / AWAITING DEPOSIT"; return; }
-      const diff = state.deadline - Date.now();
-      if (diff < 0) { el.innerHTML = "CHALLENGE COMPLETE"; return; }
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / 1000 / 60) % 60);
-      el.innerHTML = `T-MINUS: ${d}D ${h}H ${m}M`;
-    }
+  async function init() {
+    try {
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+      if (data) { state = data.data; refreshUI(); }
+      
+      sb.channel('rism').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
+        state = payload.new.data; refreshUI();
+      }).subscribe();
+    } catch (e) { console.error("Cloud connection failed."); }
+  }
 
-    async function init() {
-      try {
-        sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
-        if (data) { state = data.data; refreshUI(); }
-        
-        sb.channel('rism').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
-          state = payload.new.data; refreshUI();
-        }).subscribe();
-      } catch (e) { console.error("Cloud connection failed."); }
-    }
+  async function addMoney(p) {
+    const input = document.getElementById(`${p}-input`);
+    const val = parseInt(input.value);
+    if (!val || val <= 0) return;
+    if (!state.deadline) state.deadline = Date.now() + (6 * 30 * 24 * 60 * 60 * 1000);
+    state[p] += val;
+    state.logs.unshift({ user: p, amount: val, time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) });
+    refreshUI();
+    input.value = '';
+    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
+  }
 
-    async function addMoney(p) {
-      const input = document.getElementById(`${p}-input`);
-      const val = parseInt(input.value);
-      if (!val || val <= 0) return;
-      if (!state.deadline) state.deadline = Date.now() + (6 * 30 * 24 * 60 * 60 * 1000);
-      state[p] += val;
-      state.logs.unshift({ user: p, amount: val, time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) });
+  async function fullReset() {
+    if (prompt('Type "I want to reset" to confirm:') === "I want to reset") {
+      state = { gianfy: 0, edo: 0, logs: [], deadline: null };
       refreshUI();
-      input.value = '';
       await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
     }
+  }
 
-    async function fullReset() {
-      if (prompt('Type "I want to reset" to confirm:') === "I want to reset") {
-        state = { gianfy: 0, edo: 0, logs: [], deadline: null };
-        refreshUI();
-        await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-      }
-    }
-
-    window.onload = () => { refreshUI(); init(); setInterval(updateTimer, 1000); };
-  </script>
+  window.onload = () => { refreshUI(); init(); setInterval(updateTimer, 1000); };
+</script>
 </body>
 </html>

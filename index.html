@@ -7,26 +7,44 @@ let state = {
   gianfy: 0,
   edo: 0,
   logs: [],
-  deadline: null // This will store the 6-month timestamp
+  deadline: null 
 };
 
-// 1. Initialize and Sync
 async function init() {
   try {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
     
-    if (data) {
-      state = data.data;
-    } else {
-      await sb.from('rng_state').insert([{ id: 'rism_global', data: state }]);
+    // Create Timer display in header if it doesn't exist
+    if(!document.getElementById('global-timer')) {
+      const timerDiv = document.createElement('div');
+      timerDiv.id = 'global-timer';
+      timerDiv.style.cssText = "font-family:'DM Mono'; color:#f5c542; margin-top:20px; font-size:14px; text-align:center;";
+      document.querySelector('header').appendChild(timerDiv);
     }
 
-    refreshUI();
-    startTimerInterval();
+    // Create Reset button at bottom if it doesn't exist
+    if(!document.getElementById('reset-container')) {
+      const resetDiv = document.createElement('div');
+      resetDiv.id = 'reset-container';
+      resetDiv.style.cssText = "text-align:center; margin-top:60px; padding-bottom:40px;";
+      resetDiv.innerHTML = `<button onclick="fullReset()" style="background:transparent; border:1px solid #555570; color:#555570; padding:8px 16px; cursor:pointer; font-family:'DM Mono'; font-size:10px; letter-spacing:1px;">DANGER: SYSTEM RESET</button>`;
+      document.querySelector('.cards').after(resetDiv);
+    }
 
-    sb.channel('rism-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
+    const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+    if (data) state = data.data;
+
+    refreshUI();
+    setInterval(updateTimerDisplay, 1000);
+
+    // CRITICAL: Filter added so this app ONLY hears "rism_global" updates
+    sb.channel('rism-exclusive')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'rng_state', 
+        filter: 'id=eq.rism_global' 
+      }, payload => {
         state = payload.new.data;
         refreshUI();
       })
@@ -37,114 +55,69 @@ async function init() {
   }
 }
 
-// 2. Timer Logic
-function startTimerInterval() {
-  setInterval(() => {
-    const timerEl = document.getElementById('global-timer');
-    if (!state.deadline) {
-      timerEl.innerHTML = "WAITING FOR FIRST DEPOSIT...";
-      return;
-    }
-
-    const now = new Date().getTime();
-    const distance = state.deadline - now;
-
-    if (distance < 0) {
-      const winner = state.gianfy > state.edo ? "GIANFY" : (state.edo > state.gianfy ? "EDO" : "IT'S A TIE");
-      timerEl.innerHTML = `CHALLENGE ENDED: ${winner} WINS!`;
-      return;
-    }
-
-    const months = Math.floor(distance / (1000 * 60 * 60 * 24 * 30));
-    const days = Math.floor((distance % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    
-    timerEl.innerHTML = `TIME REMAINING: ${months}m ${days}d ${hours}h ${mins}m`;
-  }, 1000);
-}
-
-// 3. Updated Apply Function
-async function apply(person, amount) {
-  // If first deposit ever, start the 6-month timer
+function updateTimerDisplay() {
+  const timerEl = document.getElementById('global-timer');
+  if (!timerEl) return;
   if (!state.deadline) {
-    const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000; 
-    state.deadline = new Date().getTime() + sixMonthsInMs;
+    timerEl.innerHTML = "WAITING FOR FIRST DEPOSIT...";
+    return;
   }
 
+  const distance = state.deadline - new Date().getTime();
+  if (distance < 0) {
+    const winner = state.gianfy > state.edo ? "GIANFY" : (state.edo > state.gianfy ? "EDO" : "TIE");
+    timerEl.innerHTML = `CHALLENGE OVER: ${winner} WINS!`;
+    return;
+  }
+
+  const months = Math.floor(distance / (1000 * 60 * 60 * 24 * 30));
+  const days = Math.floor((distance % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+  timerEl.innerHTML = `TIME REMAINING: ${months}m ${days}d ${hours}h ${mins}m`;
+}
+
+async function apply(person, amount) {
+  if (!state.deadline) {
+    const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
+    state.deadline = new Date().getTime() + sixMonthsMs;
+  }
   state[person] = Math.min(state[person] + amount, MAX);
-  const time = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-  state.logs.unshift({ user: person, amount: amount, time: time });
+  state.logs.unshift({ user: person, amount: amount, time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) });
   
   await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
   refreshUI();
   if (state[person] >= MAX) celebrate(person);
 }
 
-// 4. Secure Reset Feature
 async function fullReset() {
-  const verification = prompt('To reset everything, type: I want to reset');
-  
-  if (verification === "I want to reset") {
-    state = {
-      gianfy: 0,
-      edo: 0,
-      logs: [],
-      deadline: null
-    };
+  if (prompt('To reset everything, type: I want to reset') === "I want to reset") {
+    state = { gianfy: 0, edo: 0, logs: [], deadline: null };
     await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-    alert('System Reset Successful.');
     refreshUI();
-  } else {
-    alert('Reset cancelled. Incorrect verification text.');
   }
 }
 
-// Ensure you add these UI elements to your HTML
-// Add this inside your <header> or above the cards:
-// <div id="global-timer" style="font-family:'DM Mono'; color:var(--gold); margin-top:20px; letter-spacing:2px; font-size:14px;"></div>
-
-// Add this at the very bottom of your <body>:
-// <button onclick="fullReset()" style="background:transparent; border:1px solid var(--muted); color:var(--muted); padding:10px 20px; cursor:pointer; font-family:'DM Mono'; font-size:10px; margin-top:50px;">SYSTEM RESET</button>
-
 function refreshUI() {
-  updateUI('gianfy');
-  updateUI('edo');
-  renderLogs();
-}
-
-function updateUI(person) {
-  const val = Math.min(state[person], MAX);
-  const pct = (val / MAX) * 100;
-  document.getElementById(`${person}-val`).textContent  = '€' + val.toLocaleString('it-IT');
-  document.getElementById(`${person}-fill`).style.width = pct + '%';
-  document.getElementById(`${person}-pct`).textContent  = pct.toFixed(1) + '%';
-}
-
-function renderLogs() {
-  ['gianfy', 'edo'].forEach(person => {
-    const logContainer = document.getElementById(`${person}-log`);
-    logContainer.innerHTML = '';
-    const personLogs = state.logs.filter(l => l.user === person).slice(0, 10);
-    personLogs.forEach(l => {
-      const entry = document.createElement('div');
-      entry.className = 'log-entry';
-      entry.innerHTML = `[${l.time}] <span>+€${l.amount.toLocaleString('it-IT')}</span> added`;
-      logContainer.appendChild(entry);
-    });
+  ['gianfy', 'edo'].forEach(p => {
+    const val = Math.min(state[p], MAX);
+    const pct = (val / MAX) * 100;
+    document.getElementById(`${p}-val`).textContent = '€' + val.toLocaleString('it-IT');
+    document.getElementById(`${p}-fill`).style.width = pct + '%';
+    document.getElementById(`${p}-pct`).textContent = pct.toFixed(1) + '%';
+    
+    const logBox = document.getElementById(`${p}-log`);
+    logBox.innerHTML = state.logs.filter(l => l.user === p).slice(0, 10)
+      .map(l => `<div class="log-entry">[${l.time}] <span>+€${l.amount.toLocaleString('it-IT')}</span></div>`).join('');
   });
 }
 
 function addMoney(person) {
   const input = document.getElementById(`${person}-input`);
   const amount = parseInt(input.value);
-  if (!amount || amount <= 0) return;
-  apply(person, amount);
-  input.value = '';
+  if (amount > 0) { apply(person, amount); input.value = ''; }
 }
 
-function quickAdd(person, amount) {
-  apply(person, amount);
-}
+function quickAdd(person, amount) { apply(person, amount); }
 
 window.onload = init;

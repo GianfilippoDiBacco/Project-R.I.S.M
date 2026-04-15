@@ -1,123 +1,149 @@
-const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-const MAX = 10000;
-let sb;
-let state = {
-  gianfy: 0,
-  edo: 0,
-  logs: [],
-  deadline: null 
-};
-
-async function init() {
-  try {
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    
-    // Create Timer display in header if it doesn't exist
-    if(!document.getElementById('global-timer')) {
-      const timerDiv = document.createElement('div');
-      timerDiv.id = 'global-timer';
-      timerDiv.style.cssText = "font-family:'DM Mono'; color:#f5c542; margin-top:20px; font-size:14px; text-align:center;";
-      document.querySelector('header').appendChild(timerDiv);
-    }
-
-    // Create Reset button at bottom if it doesn't exist
-    if(!document.getElementById('reset-container')) {
-      const resetDiv = document.createElement('div');
-      resetDiv.id = 'reset-container';
-      resetDiv.style.cssText = "text-align:center; margin-top:60px; padding-bottom:40px;";
-      resetDiv.innerHTML = `<button onclick="fullReset()" style="background:transparent; border:1px solid #555570; color:#555570; padding:8px 16px; cursor:pointer; font-family:'DM Mono'; font-size:10px; letter-spacing:1px;">DANGER: SYSTEM RESET</button>`;
-      document.querySelector('.cards').after(resetDiv);
-    }
-
-    const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
-    if (data) state = data.data;
-
-    refreshUI();
-    setInterval(updateTimerDisplay, 1000);
-
-    // CRITICAL: Filter added so this app ONLY hears "rism_global" updates
-    sb.channel('rism-exclusive')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'rng_state', 
-        filter: 'id=eq.rism_global' 
-      }, payload => {
-        state = payload.new.data;
-        refreshUI();
-      })
-      .subscribe();
-
-  } catch (err) {
-    console.error("Connection failed:", err);
-  }
-}
-
-function updateTimerDisplay() {
-  const timerEl = document.getElementById('global-timer');
-  if (!timerEl) return;
-  if (!state.deadline) {
-    timerEl.innerHTML = "WAITING FOR FIRST DEPOSIT...";
-    return;
-  }
-
-  const distance = state.deadline - new Date().getTime();
-  if (distance < 0) {
-    const winner = state.gianfy > state.edo ? "GIANFY" : (state.edo > state.gianfy ? "EDO" : "TIE");
-    timerEl.innerHTML = `CHALLENGE OVER: ${winner} WINS!`;
-    return;
-  }
-
-  const months = Math.floor(distance / (1000 * 60 * 60 * 24 * 30));
-  const days = Math.floor((distance % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-  timerEl.innerHTML = `TIME REMAINING: ${months}m ${days}d ${hours}h ${mins}m`;
-}
-
-async function apply(person, amount) {
-  if (!state.deadline) {
-    const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
-    state.deadline = new Date().getTime() + sixMonthsMs;
-  }
-  state[person] = Math.min(state[person] + amount, MAX);
-  state.logs.unshift({ user: person, amount: amount, time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) });
+<script>
+  // Cloud Configuration
+  const SUPABASE_URL = 'https://qlbcxutceqeomxldliue.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsYmN4dXRjZXFlb214bGRsaXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNDY3MTgsImV4cCI6MjA5MTgyMjcxOH0.5DBDrXqvRILPOI0y4LJuGkqRG6tkye0s-1_KGbYDxUE';
   
-  await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-  refreshUI();
-  if (state[person] >= MAX) celebrate(person);
-}
+  const MAX = 10000;
+  let sb;
+  let state = {
+    gianfy: 0,
+    edo: 0,
+    logs: [] // We'll share the log globally too
+  };
 
-async function fullReset() {
-  if (prompt('To reset everything, type: I want to reset') === "I want to reset") {
-    state = { gianfy: 0, edo: 0, logs: [], deadline: null };
-    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-    refreshUI();
+  // 2. Initialize and Sync
+  async function init() {
+    try {
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // Load initial data from "rism_state" row
+      const { data, error } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+      
+      if (data) {
+        state = data.data;
+      } else {
+        // Create the row if it doesn't exist yet
+        await sb.from('rng_state').insert([{ id: 'rism_global', data: state }]);
+      }
+
+      refreshUI();
+
+      // 3. Listen for Real-time updates from other devices
+      sb.channel('rism-changes')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
+          state = payload.new.data;
+          refreshUI();
+        })
+        .subscribe();
+
+    } catch (err) {
+      console.error("Connection failed:", err);
+    }
   }
-}
 
-function refreshUI() {
-  ['gianfy', 'edo'].forEach(p => {
-    const val = Math.min(state[p], MAX);
+  function refreshUI() {
+    updateUI('gianfy');
+    updateUI('edo');
+    renderLogs();
+  }
+
+  function updateUI(person) {
+    const val = Math.min(state[person], MAX);
     const pct = (val / MAX) * 100;
-    document.getElementById(`${p}-val`).textContent = '€' + val.toLocaleString('it-IT');
-    document.getElementById(`${p}-fill`).style.width = pct + '%';
-    document.getElementById(`${p}-pct`).textContent = pct.toFixed(1) + '%';
+    document.getElementById(`${person}-val`).textContent  = '€' + val.toLocaleString('it-IT');
+    document.getElementById(`${person}-fill`).style.width = pct + '%';
+    document.getElementById(`${person}-pct`).textContent  = pct.toFixed(1) + '%';
+  }
+
+  function renderLogs() {
+    ['gianfy', 'edo'].forEach(person => {
+      const logContainer = document.getElementById(`${person}-log`);
+      logContainer.innerHTML = ''; // Clear current
+      
+      // Filter logs for this specific person
+      const personLogs = state.logs.filter(l => l.user === person).slice(0, 10);
+      
+      personLogs.forEach(l => {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `[${l.time}] <span>+€${l.amount.toLocaleString('it-IT')}</span> added`;
+        logContainer.appendChild(entry);
+      });
+    });
+  }
+
+  async function apply(person, amount) {
+    if (state[person] >= MAX) return;
+
+    // Update local state
+    state[person] = Math.min(state[person] + amount, MAX);
     
-    const logBox = document.getElementById(`${p}-log`);
-    logBox.innerHTML = state.logs.filter(l => l.user === p).slice(0, 10)
-      .map(l => `<div class="log-entry">[${l.time}] <span>+€${l.amount.toLocaleString('it-IT')}</span></div>`).join('');
+    // Add to shared log
+    const time = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+    state.logs.unshift({ user: person, amount: amount, time: time });
+    if (state.logs.length > 50) state.logs.pop(); // Keep log slim
+
+    // Push to Cloud
+    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
+    
+    refreshUI();
+    if (state[person] >= MAX) celebrate(person);
+  }
+
+  // UI Helper Functions
+  function addMoney(person) {
+    const input = document.getElementById(`${person}-input`);
+    const amount = parseInt(input.value);
+    if (!amount || amount <= 0) return;
+    apply(person, amount);
+    input.value = '';
+  }
+
+  function quickAdd(person, amount) {
+    apply(person, amount);
+  }
+
+  function celebrate(person) {
+    document.getElementById('cel-name').textContent = person.toUpperCase();
+    document.getElementById('cel-name').style.color =
+      person === 'gianfy' ? 'var(--accent-g)' : 'var(--accent-e)';
+    document.getElementById('celebration').classList.add('active');
+    launchConfetti();
+  }
+
+  function closeCelebration() {
+    document.getElementById('celebration').classList.remove('active');
+    document.getElementById('confetti-container').innerHTML = '';
+  }
+
+  function launchConfetti() {
+    const container = document.getElementById('confetti-container');
+    container.innerHTML = '';
+    const colors = ['#00e5a0','#ff5f6d','#f5c542','#ffffff'];
+    for (let i = 0; i < 120; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      el.style.cssText = `
+        left:${Math.random() * 100}vw; background:${color}; 
+        width:${6+Math.random()*8}px; height:${6+Math.random()*8}px;
+        --drift:${(Math.random() - 0.5) * 200}px;
+        animation-duration:${2.5+Math.random()*2}s; 
+        animation-delay:${Math.random()*1.5}s;
+      `;
+      container.appendChild(el);
+    }
+  }
+
+  // Handle Enter Key
+  ['gianfy','edo'].forEach(p => {
+    document.getElementById(`${p}-input`).addEventListener('keydown', e => {
+      if (e.key === 'Enter') addMoney(p);
+    });
   });
-}
 
-function addMoney(person) {
-  const input = document.getElementById(`${person}-input`);
-  const amount = parseInt(input.value);
-  if (amount > 0) { apply(person, amount); input.value = ''; }
-}
-
-function quickAdd(person, amount) { apply(person, amount); }
-
-window.onload = init;
+  // Start the App
+  window.onload = init;
+</script>

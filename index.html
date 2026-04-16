@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project RISM | Sudden Death</title>
+  <title>Project RISM | Permanent Sync</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    /* ... (Same CSS as before for the aesthetic) ... */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --bg: #0a0a0f; --surface: #111118; --border: #1e1e2e; --accent-g: #00e5a0; --accent-e: #ff5f6d; --text: #e8e8f0; --muted: #555570; --gold: #f5c542; }
     body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 999; opacity: 0.4; }
     header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 80px; letter-spacing: 0.08em; background: linear-gradient(135deg, #fff 30%, var(--muted)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center;}
-    #global-timer { text-align: center; margin-top: 10px; color: var(--gold); letter-spacing: 0.2em; }
+    #global-timer { text-align: center; margin-top: 10px; color: var(--gold); letter-spacing: 0.2em; text-transform: uppercase; }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; width: 100%; max-width: 900px; margin-top: 40px; }
     .card { background: var(--surface); border: 1px solid var(--border); padding: 36px 32px; position: relative; }
     .card.gianfy::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent-g); }
@@ -26,19 +26,17 @@
     .input-row { display: flex; gap: 8px; }
     .money-input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: 10px; font-family: inherit; }
     .add-btn { background: transparent; border: 1px solid var(--border); color: #fff; padding: 10px; cursor: pointer; }
-    
-    /* Celebration - Fixed Z-index */
     .celebration { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; text-align: center; }
     .celebration.active { display: flex; }
     .cel-name { font-family: 'Bebas Neue', sans-serif; font-size: 120px; line-height: 1; margin: 20px 0; }
-    #reset-btn { margin-top: 50px; background: transparent; border: 1px solid #333; color: #444; padding: 10px; cursor: pointer; }
+    #reset-btn { margin-top: 50px; background: transparent; border: 1px solid #333; color: #444; padding: 10px; cursor: pointer; font-size: 10px; }
   </style>
 </head>
 <body>
 
 <header>
   <h1>PROJECT RISM</h1>
-  <div id="global-timer">SYNCING SATELLITE...</div>
+  <div id="global-timer">ESTABLISHING CONNECTION...</div>
 </header>
 
 <div class="cards">
@@ -46,28 +44,20 @@
     <div class="name" style="color:var(--accent-g)">GIANFY</div>
     <div class="amount-value" id="gianfy-val">€0</div>
     <div class="progress-wrap"><div class="progress-fill" id="gianfy-fill"></div></div>
-    <div class="input-row">
-      <input class="money-input" id="gianfy-input" type="number" placeholder="€..." />
-      <button class="add-btn" onclick="addMoney('gianfy')">DEPOSIT</button>
-    </div>
+    <div class="input-row"><input class="money-input" id="gianfy-input" type="number" placeholder="€..." /><button class="add-btn" onclick="addMoney('gianfy')">DEPOSIT</button></div>
   </div>
-
   <div class="card edo">
     <div class="name" style="color:var(--accent-e)">EDO</div>
     <div class="amount-value" id="edo-val">€0</div>
     <div class="progress-wrap"><div class="progress-fill" id="edo-fill"></div></div>
-    <div class="input-row">
-      <input class="money-input" id="edo-input" type="number" placeholder="€..." />
-      <button class="add-btn" onclick="addMoney('edo')">DEPOSIT</button>
-    </div>
+    <div class="input-row"><input class="money-input" id="edo-input" type="number" placeholder="€..." /><button class="add-btn" onclick="addMoney('edo')">DEPOSIT</button></div>
   </div>
 </div>
 
 <div class="celebration" id="celebration">
     <div style="color:var(--gold); letter-spacing:5px;">TERMINAL LOCKDOWN</div>
     <div class="cel-name" id="cel-name">WINNER</div>
-    <div style="color:var(--muted)">TARGET REACHED: €10.000 SECURED</div>
-    <button id="reset-btn" onclick="fullReset()">REBOOT SYSTEM (RESET)</button>
+    <button id="reset-btn" onclick="fullReset()">REBOOT SYSTEM (RESET ALL DATA)</button>
 </div>
 
 <script>
@@ -79,17 +69,26 @@
 
   async function init() {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
-    if (data) { state = data.data; refreshUI(); }
     
+    // 1. Initial Load from Supabase
+    const { data, error } = await sb.from('rng_state').select('data').eq('id', 'rism_global').single();
+    if (data) { 
+        state = data.data; 
+        refreshUI(); 
+    } else {
+        console.error("Data could not be loaded. Ensure SQL 'insert' was run.", error);
+    }
+    
+    // 2. Realtime Listener for other devices
     sb.channel('rism').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rng_state', filter: 'id=eq.rism_global' }, payload => {
-      state = payload.new.data; 
-      refreshUI();
+      if (payload.new && payload.new.data) {
+          state = payload.new.data; 
+          refreshUI();
+      }
     }).subscribe();
   }
 
   function refreshUI() {
-    // Check for winner first
     if (state.winner) {
         document.getElementById('cel-name').innerText = state.winner.toUpperCase();
         document.getElementById('cel-name').style.color = state.winner === 'gianfy' ? 'var(--accent-g)' : 'var(--accent-e)';
@@ -113,26 +112,23 @@
     if (!val || val <= 0) return;
     
     if (!state.deadline) state.deadline = Date.now() + (6 * 30 * 24 * 60 * 60 * 1000);
-    
     state[p] += val;
     state.logs.unshift({ user: p, amount: val, time: new Date().toLocaleTimeString() });
     
-    // SUDDEN DEATH CHECK
     if (state[p] >= MAX) {
-        state[p] = MAX; // Cap it
+        state[p] = MAX;
         state.winner = p;
     }
 
-    refreshUI(); // Update UI immediately for the clicker
+    refreshUI();
     input.value = '';
     
-    // Push to Supabase
-    const { error } = await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
-    if (error) console.error("Update failed:", error);
+    // 3. Save to Supabase (The part that prevents the reset on refresh)
+    await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
   }
 
   async function fullReset() {
-    if (confirm("System Reboot? This clears all cloud data.")) {
+    if (confirm("Reset everything?")) {
         state = { gianfy: 0, edo: 0, logs: [], deadline: null, winner: null };
         refreshUI();
         await sb.from('rng_state').update({ data: state }).eq('id', 'rism_global');
@@ -141,13 +137,11 @@
 
   function updateTimer() {
     const el = document.getElementById('global-timer');
-    if (state.winner) { el.innerHTML = "SYSTEM LOCKED: WINNER CONFIRMED"; return; }
-    if (!state.deadline) { el.innerHTML = "AWAITING INITIAL DEPOSIT"; return; }
+    if (state.winner) { el.innerHTML = "CHALLENGE CONCLUDED"; return; }
+    if (!state.deadline) { el.innerHTML = "AWAITING FIRST DEPOSIT"; return; }
     const diff = state.deadline - Date.now();
-    if (diff <= 0) { el.innerHTML = "TIME EXPIRED"; return; }
     const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    el.innerHTML = `T-MINUS: ${d}D ${h}H`;
+    el.innerHTML = `T-MINUS: ${d}D REMAINING`;
   }
 
   window.onload = () => { init(); setInterval(updateTimer, 1000); };
